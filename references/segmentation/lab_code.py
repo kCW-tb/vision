@@ -26,7 +26,7 @@ def decode_segmap(image, nc=3):
     return rgb
 
 # 모델 로드
-model = torch.load('.\model.pth', weights_only=False)
+model = torch.load('./model.pth', weights_only=False)
 model.eval()
 
 # 비디오 경로 및 캡처 객체 정의
