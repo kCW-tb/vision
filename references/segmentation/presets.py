@@ -1,5 +1,6 @@
 import torch
 
+#V1을 사용할 때에는 torchvision 공식 사이트에서 증식을 부르는게 아닌 segmentation 디렉토리의 transforms.py를 불러온다.
 def get_modules(use_v2):
     # We need a protected import to avoid the V2 warning in case just V1 is used
     if use_v2:
@@ -15,7 +16,7 @@ def get_modules(use_v2):
         
         return transforms, None, None
 
-#transforms에 직접적으로 넣는다 segmentation은
+#데이터 증식에 사용되는 기법을 추가.
 class SegmentationPresetTrain:
     def __init__(
         self,
@@ -47,7 +48,6 @@ class SegmentationPresetTrain:
             #transforms += [T.RandomResize(min_size=int(0.5 * base_size), max_size=int(2.0 * base_size))]
             #transforms += [T.ColorJitter(saturation=0.5, hue=0.5, contrast=0.5)]
             transforms += [T.RandomRotation((-10,10))]
-            #GrayScale사용하면 되려 손해?
             #transforms += [T.RandomGrayscale(p=0.2)]
             #transforms += [T.GaussianBlur(3)]
             #transforms += [T.RandomAffine(degrees=10, )]
@@ -90,7 +90,7 @@ class SegmentationPresetTrain:
         if use_v2:
             transforms += [T.ToPureTensor()]
             
-        print("Train 데이터 증강 Compose 내역.")
+        print("Train Data Argument Compose 내역.")
         for t in transforms:
             print(t)
         print()
@@ -133,7 +133,7 @@ class SegmentationPresetEval:
         if use_v2:
             transforms += [T.ToPureTensor()]
         
-        print("Val 데이터 증식")
+        print("Valid Data Argument Compose 내역.")
         for t in transforms:
             print(t)
         print()
