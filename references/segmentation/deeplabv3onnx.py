@@ -18,7 +18,7 @@ def export_deeplabv3_to_onnx(model_path):
     Parameters:
     model_path (str): The path to save the ONNX model.
     """
-    PATH = "D:\\pytorch_cuda\\segmentaion_data\\dataset6\\output\\checkpoint.pth"
+    PATH = "./checkpoint.pth"
     
     model = torchvision.models.get_model(
         name='deeplabv3_resnet101',
