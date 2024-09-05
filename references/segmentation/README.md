@@ -9,7 +9,6 @@
 ![image](https://github.com/user-attachments/assets/b5c54e0c-3dbd-46cb-9223-2e701464fead)
 ![image](https://github.com/user-attachments/assets/32cf7cae-8754-4026-a403-5b00051f9313)
 ![image](https://github.com/user-attachments/assets/eed2058a-3112-4ac1-a927-35115c006acf)
-![image](https://github.com/user-attachments/assets/29f788ce-d692-4d81-8fa3-53f407d9765b)
 
 
 V1으로 ElasticTransform을 구현한 이미지
