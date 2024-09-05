@@ -67,7 +67,7 @@ class ConfusionMatrix:
     def __init__(self, num_classes):
         self.num_classes = num_classes
         self.mat = None
-
+ 
     def update(self, a, b):
         n = self.num_classes
         if self.mat is None:
@@ -76,20 +76,20 @@ class ConfusionMatrix:
             k = (a >= 0) & (a < n)
             inds = n * a[k].to(torch.int64) + b[k]
             self.mat += torch.bincount(inds, minlength=n**2).reshape(n, n)
-
+ 
     def reset(self):
         self.mat.zero_()
-
+ 
     def compute(self):
         h = self.mat.float()
         acc_global = torch.diag(h).sum() / h.sum()
         acc = torch.diag(h) / h.sum(1)
         iu = torch.diag(h) / (h.sum(1) + h.sum(0) - torch.diag(h))
         return acc_global, acc, iu
-
+ 
     def reduce_from_all_processes(self):
         self.mat = reduce_across_processes(self.mat).to(torch.int64)
-
+ 
     def __str__(self):
         #검증에서 실행.
         acc_global, acc, iu = self.compute()
@@ -99,14 +99,14 @@ class ConfusionMatrix:
             [f"{i:.1f}" for i in (iu * 100).tolist()],
             iu.mean().item() * 100,
         )
-
-
+ 
+ 
 class MetricLogger:
     def __init__(self, delimiter="\t"):
         #meters는 learning rate, Loss값을 포함.
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
-
+ 
     def update(self, **kwargs):
         for k, v in kwargs.items():
             if isinstance(v, torch.Tensor):
@@ -116,27 +116,27 @@ class MetricLogger:
                     f"This method expects the value of the input arguments to be of type float or int, instead  got {type(v)}"
                 )
             self.meters[k].update(v)
-
+ 
     def __getattr__(self, attr):
         if attr in self.meters:
             return self.meters[attr]
         if attr in self.__dict__:
             return self.__dict__[attr]
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr}'")
-
+ 
     def __str__(self):
         loss_str = []
         for name, meter in self.meters.items():
             loss_str.append(f"{name}: {str(meter)}")
         return self.delimiter.join(loss_str)
-
+ 
     def synchronize_between_processes(self):
         for meter in self.meters.values():
             meter.synchronize_between_processes()
-
+ 
     def add_meter(self, name, meter):
         self.meters[name] = meter
-
+ 
     def log_every(self, iterable, print_freq, header=None):
         i = 0
         if not header:
@@ -173,19 +173,20 @@ class MetricLogger:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
-                    print(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            #str(self에서 learning rate와 loss값 모두 출력)
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            memory=torch.cuda.max_memory_allocated() / MB,
+                    if 'V' in header:
+                        print(
+                            log_msg.format(
+                                i,
+                                len(iterable),
+                                eta=eta_string,
+                                #str(self에서 learning rate와 loss값 모두 출력)
+                                meters=str(self),
+                                time=str(iter_time),
+                                data=str(data_time),
+                                memory=torch.cuda.max_memory_allocated() / MB,
+                            )
                         )
-                    )
-                    print(str(self))
+                        print("str : ", str(self))
                 else:
                     print(
                         log_msg.format(
@@ -194,30 +195,33 @@ class MetricLogger:
                     )
             i += 1
             end = time.time()
+        
         #유저 추가 코드.
+        Epoch = None
+        import re
+        Epoch = re.sub(r'[^0-9]', '', header)
+        Epoch = int(Epoch)
         if 'Epoch' in header:
-            print("Train Loss값 출력 위치.")
             print("Train Loss value : ", self.meters['loss'])
-            import re
-            epoch = re.sub(r'[^0-9]', '', header)
-            epoch = int(epoch)
-            print("Epoch : " , epoch)
+            print("Epoch : ", Epoch)
             
             loss_value = str(self.meters['loss'])
             loss_value = loss_value.split()[0]
             loss_value = float(loss_value)
             #Train loss tensorboard 기록
-            writer = SummaryWriter('./runs/loss')
-            writer.add_scalar('Train Loss', loss_value, epoch)
+            writer = SummaryWriter('./runs/train_loss')
+            writer.add_scalar('Train Loss', loss_value, Epoch)
             writer.close()
         elif 'Test' in header:
-            print("Evaluate 단계")
-            '''
-            loss_value = str(self.meters['loss'])
-            loss_value = loss_value.split()[0]
-            loss_value = float(loss_value)
-            print("evaluate self : ", loss_value)
-            '''
+            if 'V' in header:
+                print("Valid Loss value : ", self.meters['loss'])
+                print("Epoch : ", Epoch)
+                loss_value = str(self.meters['loss'])
+                loss_value = loss_value.split()[0]
+                loss_value = float(loss_value)
+                writer = SummaryWriter('./runs/Val_loss')
+                writer.add_scalar('Val Loss', loss_value, Epoch)
+                writer.close()
         
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
