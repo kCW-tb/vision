@@ -177,8 +177,6 @@ def main(args):
     else:
         torch.backends.cudnn.benchmark = True
         
-    #이거 확인해야함 Train은 num_classes가 있는데 Val은 없다
-    #여기에서 출력이 되고 안되고가 나오는지도.
     dataset, num_classes = get_dataset(args, is_train=True)
     dataset_test, num_classes_test = get_dataset(args, is_train=False)
 
@@ -238,7 +236,6 @@ def main(args):
     plt.subplot(121),plt.imshow(to_pil_image(train_img[0]))    
     plt.subplot(122),plt.imshow(decode_segmap(train_labels[0]))
     plt.show()
-    print("예제 코드 종료")
     
     model = torchvision.models.get_model(
         args.model,
@@ -324,22 +321,21 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
+        
         train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, args.print_freq, scaler)
         
-        #loss값 등 출력이 나오는 곳 confmat는 valid data train_confmat는 학습 정확도 등을 출력하고 싶은 느거임.
         confmat = evaluate(model, data_loader_test, device=device, num_classes=num_classes)
-        #추가 코드.
         train_confmat = evaluate(model, data_loader, device=device, num_classes=num_classes)
         
         print("검증 데이터 acc 및 IoU")
-        print("[_background_, ceiling, floor, wall, blockage]")
+        print("[_background_, floor, blockage]")
         print(confmat)
         
-        #utils ConfusionMatrix에서 확인이 필요함.
         print("훈련 데이터 acc 및 IoU")
-        print("[_background_, ceiling, floor, wall, blockage]")
+        print("[_background_, floor, blockage]")
         print(train_confmat)
-        #각 클래스별로 정확도 뽑기.
+        
+        #각 클래스별로 정확도 추출.
         acc_gloval, class_list_acc, ius = confmat.compute()
         class_list_acc = (class_list_acc * 100).tolist()
         
@@ -347,13 +343,11 @@ def main(args):
         train_class_list_acc = (train_class_list_acc * 100).tolist()
         
         
-        # 5 -> 3
+        #이전에 생성해둔 이중 리스트에 추출된 정확도를 기록
         for i in range(3):
             acc_data[i].append(class_list_acc[i])
-        
         for i in range(3):
             train_acc_data[i].append(train_class_list_acc[i])    
-        
         
         checkpoint = {
             "model": model_without_ddp.state_dict(),
@@ -366,45 +360,7 @@ def main(args):
             checkpoint["scaler"] = scaler.state_dict()
         utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth"))
         utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
-        #그래프 그리는 코드 ACC 관련. + pyplot방법
-        '''
-        if(epoch != 0):
-            #2행 1열의 데이터에서 1행으로 설정
-            x_arr = np.arange(epoch + 1)
-            print('그래프 그리기 x_arr : ', str(x_arr))
-            #plt.subplot(2,1,2)
-            plt.plot(x_arr, acc_data[0], '-o', label='back ground', color='black')
-            plt.plot(x_arr, acc_data[1], '-o', label='ceiling', color='gray')
-            plt.plot(x_arr, acc_data[2], '-o', label='chair', color='red')
-            plt.plot(x_arr, acc_data[3], '-o', label='door', color='blue')
-            plt.plot(x_arr, acc_data[4], '-o', label='floor', color='yellow')
-            plt.plot(x_arr, acc_data[5], '-o', label='glassdoor', color='green')
-            plt.plot(x_arr, acc_data[6], '-o', label='table', color='magenta')
-            plt.plot(x_arr, acc_data[7], '-o', label='wall', color='blueviolet')
-            plt.plot(x_arr, acc_data[8], '-o', label='window', color='chocolate')
-            handles, labels = plt.gca().get_legend_handles_labels()
-            by_label = dict(zip(labels, handles))
-            plt.legend(by_label.values(), by_label.keys())
-            plt.xlabel('Epoch', size=15)
-            plt.ylabel('Acc', size=15)
-            
-            plt.ion()
-            plt.show(block=False) #멈춤 방지 계속해서 코드 진행.
-            plt.pause(0.1) #렉걸림 방지.
-            display.clear_output(wait=True)
-        '''
-        #값을 추가하는거라 마지막 인덱스만 추가해줘야 함.
-        '''
-        writer.add_scalars(
-            'classes_Val_Acc', {'back_ground':acc_data[0][-1],
-                            'ceiling':acc_data[1][-1],
-                            'floor':acc_data[2][-1],
-                            'wall':acc_data[3][-1],
-                            'blockage':acc_data[4][-1],
-                            },
-            epoch
-        )
-        '''
+       
         writer.add_scalars(
             'classes_Val_Acc', {'back_ground':acc_data[0][-1],
                             'floor':acc_data[1][-1],
@@ -419,15 +375,13 @@ def main(args):
                             },
             epoch
         )
-        
-        
     #모델의 구조와 가중치 모두를 저장
     torch.save(model_without_ddp, os.path.join(args.output_dir, "model.pth"))
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(f"Training time {total_time_str}")
-    
+        
     writer.flush()
     writer.close()
 
