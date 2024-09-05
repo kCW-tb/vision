@@ -23,6 +23,4 @@ segmantic segmentation
 
 ![image](https://github.com/user-attachments/assets/1be99300-e0bd-4564-958b-14dd4711548c)
 
-
-Modifying Official Site Code
-Source code address : https://github.com/pytorch/vision
+수정한 코드는 대부분 references 코드이다.
