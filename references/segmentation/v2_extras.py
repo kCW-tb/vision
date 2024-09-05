@@ -50,8 +50,8 @@ class CocoDetectionToVOCSegmentation(v2.Transform):
     '''
     COCO_TO_VOC_LABEL_MAP = dict(
         zip(
-            [0, 1, 2, 2, 4],
-            range(5),
+            [0, 1, 2],
+            range(3),
         )
     )
     
