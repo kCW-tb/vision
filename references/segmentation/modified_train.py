@@ -90,26 +90,43 @@ def criterion(inputs, target):
     return losses["out"] + 0.5 * losses["aux"]
 
 
-def evaluate(model, data_loader, device, num_classes):
-    model.eval()
+def eval‎‎uate(model, data_loader, device, num_classes, epoch, cut_train):
+    model.eval‎‎()
     confmat = utils.ConfusionMatrix(num_classes)
     metric_logger = utils.MetricLogger(delimiter="  ")
-    #header가 Test로 들어가면 Metric_logger.log_every에서 
-    header = "Test:"
+
+    header = f"Test: [{epoch}] cut : " + cut_train
     num_processed_samples = 0
     with torch.inference_mode():
-        for image, target in metric_logger.log_every(data_loader, 100, header):
+        for image, target in metric_logger.log_every(data_loader, 30, header):
             image, target = image.to(device), target.to(device)
+            #if문으로 Data_loader가 Val일 때에만 진행 - train_one_epoch에서 중복으로 출력해주기 때문.
+            scaler = torch.cuda.amp.GradScaler() if args.amp else None
+            model_without_ddp = model
+            params_to_optimize = [
+                {"params": [p for p in model_without_ddp.backbone.parameters() if p.requires_grad]},
+                {"params": [p for p in model_without_ddp.classifier.parameters() if p.requires_grad]},
+            ]
+            if args.aux_loss:
+                params = [p for p in model_without_ddp.aux_classifier.parameters() if p.requires_grad]
+                params_to_optimize.append({"params": params, "lr": args.lr * 10})
+ 
+            optimizer = torch.optim.SGD(params_to_optimize, lr=args.lr, momentum=args.momentum, 
+                weight_decay=args.weight_decay)
+            with torch.cuda.amp.autocast(enabled=scaler is not None):
+                output = model(image)
+                loss = criterion(output, target)
+            metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
             output = model(image)
             output = output["out"]
-
+ 
             confmat.update(target.flatten(), output.argmax(1).flatten())
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             num_processed_samples += image.shape[0]
-
+ 
         confmat.reduce_from_all_processes()
-
+ 
     num_processed_samples = utils.reduce_across_processes(num_processed_samples)
     if (
         hasattr(data_loader.dataset, "__len__")
@@ -123,9 +140,9 @@ def evaluate(model, data_loader, device, num_classes):
             "Try adjusting the batch size and / or the world size. "
             "Setting the world size to 1 is always a safe bet."
         )
-
+ 
     return confmat
-
+ 
 def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq, scaler=None):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -145,15 +162,14 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, devi
         else:
             loss.backward()
             optimizer.step()
-
+ 
         lr_scheduler.step()
         
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
 
-
 def main(args):
     writer = SummaryWriter('./runs')
-    #acc 데이터 저장할 공간.
+    #acc 데이터 저장할 공간 이후 텐서보드를 통해 그래프를 그린다..
     acc_data = [[],[],[],[],[]]
     train_acc_data = [[],[],[],[],[]]
         
