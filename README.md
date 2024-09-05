@@ -3,7 +3,7 @@ Pytorch 공식 사이트의 vision reference코드를 연구 목적에 맞게 �
 image classification, object detection, Semantic Segmentation으로 구성되어 있음.
 
 진행한 작업
-1. Labelme labeling tool에 대해서 코드와 접목시켜 적용.
+1. Labelme 라이브러리를 사용하여 데이터셋을 생성하고 Vision 코드와 접목시켜 적용.
 2. train dataset에 대해서 데이터 증식을 적용.
 3. 학습에 대해 loss값과 acc값을 tensorboard 서버에 연동해서 기록.
 4. 생성된 model.pth에 대해서 onnx파일로 변환. (Segmentation code)
