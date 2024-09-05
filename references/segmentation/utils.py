@@ -6,7 +6,7 @@ from collections import defaultdict, deque
 
 import torch
 import torch.distributed as dist
-
+from torch.utils.tensorboard import SummaryWriter
 
 class SmoothedValue:
     """Track a series of values and provide access to smoothed values over a
@@ -91,6 +91,7 @@ class ConfusionMatrix:
         self.mat = reduce_across_processes(self.mat).to(torch.int64)
 
     def __str__(self):
+        #검증에서 실행.
         acc_global, acc, iu = self.compute()
         return ("global correct: {:.1f}\naverage row correct: {}\nIoU: {}\nmean IoU: {:.1f}").format(
             acc_global.item() * 100,
@@ -102,6 +103,7 @@ class ConfusionMatrix:
 
 class MetricLogger:
     def __init__(self, delimiter="\t"):
+        #meters는 learning rate, Loss값을 포함.
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
 
@@ -144,6 +146,7 @@ class MetricLogger:
         iter_time = SmoothedValue(fmt="{avg:.4f}")
         data_time = SmoothedValue(fmt="{avg:.4f}")
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
+        #train if문 
         if torch.cuda.is_available():
             log_msg = self.delimiter.join(
                 [
@@ -165,7 +168,8 @@ class MetricLogger:
             data_time.update(time.time() - end)
             yield obj
             iter_time.update(time.time() - end)
-            if i % print_freq == 0:
+            #print_freq가 10이라서 10마다 출력 args.print-freq
+            if i % print_freq == 0: 
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
@@ -174,12 +178,14 @@ class MetricLogger:
                             i,
                             len(iterable),
                             eta=eta_string,
+                            #str(self에서 learning rate와 loss값 모두 출력)
                             meters=str(self),
                             time=str(iter_time),
                             data=str(data_time),
                             memory=torch.cuda.max_memory_allocated() / MB,
                         )
                     )
+                    print(str(self))
                 else:
                     print(
                         log_msg.format(
@@ -188,6 +194,31 @@ class MetricLogger:
                     )
             i += 1
             end = time.time()
+        #유저 추가 코드.
+        if 'Epoch' in header:
+            print("Train Loss값 출력 위치.")
+            print("Train Loss value : ", self.meters['loss'])
+            import re
+            epoch = re.sub(r'[^0-9]', '', header)
+            epoch = int(epoch)
+            print("Epoch : " , epoch)
+            
+            loss_value = str(self.meters['loss'])
+            loss_value = loss_value.split()[0]
+            loss_value = float(loss_value)
+            #Train loss tensorboard 기록
+            writer = SummaryWriter('./runs/loss')
+            writer.add_scalar('Train Loss', loss_value, epoch)
+            writer.close()
+        elif 'Test' in header:
+            print("Evaluate 단계")
+            '''
+            loss_value = str(self.meters['loss'])
+            loss_value = loss_value.split()[0]
+            loss_value = float(loss_value)
+            print("evaluate self : ", loss_value)
+            '''
+        
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print(f"{header} Total time: {total_time_str}")

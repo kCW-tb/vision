@@ -40,12 +40,21 @@ class CocoDetectionToVOCSegmentation(v2.Transform):
        mask while pixels that belong to multiple detection masks are marked as invalid.
     """
 
+    '''
     COCO_TO_VOC_LABEL_MAP = dict(
         zip(
             [0, 5, 2, 16, 9, 44, 6, 3, 17, 62, 21, 67, 18, 19, 4, 1, 64, 20, 63, 7, 72],
             range(21),
         )
     )
+    '''
+    COCO_TO_VOC_LABEL_MAP = dict(
+        zip(
+            [0, 1, 2, 2, 4],
+            range(5),
+        )
+    )
+    
     INVALID_VALUE = 255
 
     def _coco_detection_masks_to_voc_segmentation_mask(self, target):
